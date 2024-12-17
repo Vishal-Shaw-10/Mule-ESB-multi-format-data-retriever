@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="244520dc-aca2-45f9-9e3d-3cfb5bab6c2b" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<file:config name="File_Config" doc:name="File Config" doc:id="655084c6-5168-4194-81b6-73b19cc1e706" />
+	<flow name="send-.xlsxFlow" doc:id="52c23f80-9bf5-4589-92cb-78a69605335c" >
+		<http:listener doc:name="Listener" doc:id="a125d011-61ec-4f8b-be64-6c87e63742f3" config-ref="HTTP_Listener_config" path="/want-data"/>
+		<set-variable value="#[attributes.queryParams.format]" doc:name="requestedQueryParams" doc:id="d907ad63-04f4-4f0d-b555-13304ccfcfb2" variableName="requestedQueryParams"/>
+		<set-variable value="#[attributes.header.'Content-Type']" doc:name="requestedDataHeader" doc:id="d6977871-430b-49fe-8cf0-5a291a840199" variableName="requestedDataHeader"/>
+		<ee:transform doc:name="Transform Message" doc:id="b5738af1-24e1-41ac-9cac-a12e8a6452be" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="dataType" ><![CDATA[%dw 2.0
+output application/json
+---
+if(isEmpty(vars.requestedQueryParams) == true)
+	splitBy(vars.requestedDataHeader,'/')[1]
+else
+	vars.requestedQueryParams]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<file:read doc:name="Read" doc:id="92f51e08-65b6-4edf-8da6-04c444ec6043" config-ref="File_Config" path="C:\Users\VISHAL\Downloads\juspay.xlsx" outputMimeType="application/xlsx"/>
+		<choice doc:name="Choice" doc:id="b30074d4-44ec-4550-bcb9-c4ab2b74c7d3">
+			<when expression="#[vars.dataType == 'csv']">
+				<ee:transform doc:name="to csv" doc:id="9c422fcb-f5e6-406f-a3f9-6811bdf3e7c7" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/csv
+---
+payload.juspay]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<when expression="#[vars.dataType == 'json']">
+				<ee:transform doc:name="to json" doc:id="aa33a17e-eba1-4629-a312-42ee25b67274">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload.juspay]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+			</when>
+			<when expression="#[vars.dataType == 'xml']">
+				<ee:transform doc:name="to xml" doc:id="a67617a8-8074-427a-bdc8-58d6185b8af8" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/xml
+---
+{ '	JUSPAY' : 
+	{
+	'data' : payload.juspay
+    }
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<when expression="#[vars.dataType == null]">
+				<ee:transform doc:name="when null" doc:id="85058f97-471a-4399-a515-152d862b2279" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload.juspay]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Transform Message" doc:id="58e62925-f1ac-4dec-8fc3-691a53329094" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	'message' : vars.dataType  default " " ++ " is not a valid data type "
+}
+]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+</mule>
